@@ -64,6 +64,13 @@ export default defineComponent({
             ctx.emit('update:show', false);
         }
 
+        function onBackgroundClick(e: MouseEvent) {
+            // Only close if clicking directly on the background, not on child elements
+            if (e.target === e.currentTarget) {
+                close();
+            }
+        }
+
         function resetTransform() {
             zoom.value = 0;
             dx.value = 0;
@@ -100,6 +107,7 @@ export default defineComponent({
             imgStyle,
 
             close,
+            onBackgroundClick,
             onWheel,
             onMouseDown,
         };
