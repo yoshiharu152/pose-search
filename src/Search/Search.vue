@@ -49,6 +49,7 @@
                                    :model="model"
                                    :camera="camera"
                                    :highlights="matchers[bodyPart]?.highlights"
+                                   @control-point-click="onControlPointClick"
             />
 
             <div style="width: 100%; height: 1px; background: #d9d9d9; margin: 6px 0;"></div>

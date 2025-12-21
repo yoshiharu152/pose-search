@@ -160,6 +160,30 @@ export default defineComponent({
             currentPhoto.value = item.photo;
         }
 
+        function onControlPointClick(clickedBodyPart: BodyPart) {
+            // Find the best matching dropdown option for this body part
+            let bestMatch: string | null = null;
+            let bestScore = -1;
+
+            for (const [optionName, matcherData] of Object.entries(matchers)) {
+                const highlights = matcherData.highlights;
+                const index = highlights.indexOf(clickedBodyPart);
+                
+                if (index >= 0) {
+                    // Score: prefer options where the clicked part is first, and prefer fewer highlights (more specific)
+                    const score = (highlights.length - index) * 100 - highlights.length;
+                    if (score > bestScore) {
+                        bestScore = score;
+                        bestMatch = optionName;
+                    }
+                }
+            }
+
+            if (bestMatch) {
+                bodyPart.value = bestMatch;
+            }
+        }
+
         return {
             supportWebGL2,
             supportMouse,
@@ -185,6 +209,7 @@ export default defineComponent({
 
             search,
             showLargePhoto,
+            onControlPointClick,
         };
     }
 });

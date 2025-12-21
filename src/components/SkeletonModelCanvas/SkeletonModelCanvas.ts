@@ -39,7 +39,8 @@ export default defineComponent({
         readonly: Boolean,
         highlights: Array as PropType<BodyPart[]>,
     },
-    setup(props) {
+    emits: ['control-point-click'],
+    setup(props, { emit }) {
         const container = ref<HTMLDivElement>();
         const canvas = ref<HTMLCanvasElement>();
         const loading = ref(false);
@@ -64,6 +65,11 @@ export default defineComponent({
         let hoveredControlPointNode: SkeletonModelNode | null = null;
         let dragging = false;
         let shiftPressedLastFrame = false;
+        let clickStartNode: SkeletonModelNode | null = null;
+        let clickStartTime = 0;
+        let clickStartX = 0;
+        let clickStartY = 0;
+        let hasMoved = false;
         const dragContext = new MouseDragContext3D();
         const dragOrigin = vec3.create();
         const dragStartVec = vec3.create();
@@ -179,40 +185,72 @@ export default defineComponent({
             camera.onInput(input);
             model.update(camera.camera);
 
-            if (!props.readonly) {
-                if (!input.mouseLeft) {
-                    dragging = false;
+            // find hovered (works in both readonly and non-readonly modes for click detection)
+            if (!dragging) {
+                hoveredControlPointNode = null;
+                let hoveredControlPointZ = Infinity;
+                if (model.root) {
+                    const stack: SkeletonModelNode[] = [model.root];
+                    for (; ;) {
+                        const node = stack.pop();
+                        if (!node) {
+                            break;
+                        }
+                        stack.push(...node.children);
+                        if (!node.controlPoint) {
+                            continue;
+                        }
+                        const cx = (node.controlPointScreenPosition[0] + 1) / 2 * width;
+                        const cy = (node.controlPointScreenPosition[1] + 1) / 2 * height;
+                        if (isPointInCircle(input.mouseX, height - input.mouseY, cx, cy, CONTROL_POINT_RADIUS)
+                            && node.controlPointScreenPosition[2] < hoveredControlPointZ
+                        ) {
+                            hoveredControlPointNode = node;
+                            hoveredControlPointZ = node.controlPointScreenPosition[2];
+                        }
+                    }
                 }
+            }
+
+            // Handle clicks (works in both readonly and non-readonly modes)
+            // Track click start for both modes
+            if (input.mouseLeft && !dragging && hoveredControlPointNode && !input.isKeyPressed('Shift')) {
+                clickStartNode = hoveredControlPointNode;
+                clickStartTime = Date.now();
+                clickStartX = input.mouseX;
+                clickStartY = input.mouseY;
+                hasMoved = false;
+            }
+
+            // Track movement to cancel click detection (works in both modes)
+            if (input.mouseLeft && clickStartNode) {
+                const dx = input.mouseX - clickStartX;
+                const dy = input.mouseY - clickStartY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                if (distance > CONTROL_POINT_RADIUS) {
+                    hasMoved = true; // Mark that we've moved, so it's not a click
+                }
+            }
+
+            // Handle clicks (works in both readonly and non-readonly modes)
+            if (!input.mouseLeft) {
+                // Check if this was a click (not a drag)
+                if (clickStartNode && !hasMoved && Date.now() - clickStartTime < 200) {
+                    // Find which BodyPart this node corresponds to
+                    const clickedBodyPart = findBodyPartForNode(clickStartNode, model);
+                    if (clickedBodyPart !== null) {
+                        emit('control-point-click', clickedBodyPart);
+                    }
+                }
+                dragging = false;
+                clickStartNode = null;
+                hasMoved = false;
+            }
+
+            if (!props.readonly) {
                 if (shiftPressedLastFrame && !input.isKeyPressed('Shift')) {
                     shiftPressedLastFrame = false;
                     dragging = false;
-                }
-
-                // find hovered
-                if (!dragging) {
-                    hoveredControlPointNode = null;
-                    let hoveredControlPointZ = Infinity;
-                    if (model.root) {
-                        const stack: SkeletonModelNode[] = [model.root];
-                        for (; ;) {
-                            const node = stack.pop();
-                            if (!node) {
-                                break;
-                            }
-                            stack.push(...node.children);
-                            if (!node.controlPoint) {
-                                continue;
-                            }
-                            const cx = (node.controlPointScreenPosition[0] + 1) / 2 * width;
-                            const cy = (node.controlPointScreenPosition[1] + 1) / 2 * height;
-                            if (isPointInCircle(input.mouseX, height - input.mouseY, cx, cy, CONTROL_POINT_RADIUS)
-                                && node.controlPointScreenPosition[2] < hoveredControlPointZ
-                            ) {
-                                hoveredControlPointNode = node;
-                                hoveredControlPointZ = node.controlPointScreenPosition[2];
-                            }
-                        }
-                    }
                 }
 
                 const projectedMX = (input.mouseX / width - 0.5) * 2;
@@ -277,6 +315,16 @@ export default defineComponent({
             }
 
             render();
+        }
+
+        function findBodyPartForNode(node: SkeletonModelNode, model: SkeletonModel): BodyPart | null {
+            // Find which BodyPart enum value this node corresponds to
+            for (const bodyPart of Object.values(BodyPart)) {
+                if (model[bodyPart] === node) {
+                    return bodyPart;
+                }
+            }
+            return null;
         }
 
         function render() {
