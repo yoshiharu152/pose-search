@@ -2,6 +2,7 @@
     <teleport to="body">
         <div class="image-viewer"
              v-if="show"
+             @click="onBackgroundClick"
         >
             <div class="loading"
                  v-if="fullLoading"
@@ -53,15 +54,17 @@
     background: rgba(0, 0, 0, .5);
 
     .img-wrapper {
-        display: flex;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        display: inline-flex;
         align-items: center;
-        width: 100%;
-        height: 100%;
+        justify-content: center;
 
         img {
-            max-width: 100%;
-            max-height: 100%;
-            margin: auto;
+            max-width: calc(100vw - 20px);
+            max-height: calc(100vh - 40px);
             box-shadow: 0 0 12px rgba(0, 0, 0, .5);
             user-select: none;
             cursor: grab;
