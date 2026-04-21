@@ -16,13 +16,15 @@ export default class Input {
     mouseMiddleDownThisFrame: boolean = false;
     wheelDetX: number = 0;
     wheelDetY: number = 0;
+    pointers: Map<number, boolean> = new Map();
 
     private readonly onContextmenu: (e: MouseEvent) => void;
-    private readonly onMouseMove: (e: MouseEvent) => void;
-    private readonly onMouseDown: (e: MouseEvent) => void;
-    private readonly onMouseUp: (e: MouseEvent) => void;
-    private readonly onMouseLeave: () => void;
-    private readonly onMouseOut: (e: MouseEvent) => void;
+    private readonly onPointerMove: (e: PointerEvent) => void;
+    private readonly onPointerDown: (e: PointerEvent) => void;
+    private readonly onPointerUp: (e: PointerEvent) => void;
+    private readonly onPointerLeave: (e: PointerEvent) => void;
+    private readonly onPointerCancel: (e: PointerEvent) => void;
+    private readonly onPointerOut: (e: PointerEvent) => void;
     private readonly onWheel: (e: WheelEvent) => void;
     private readonly onKeyDown: (e: KeyboardEvent) => void;
     private readonly onKeyUp: (e: KeyboardEvent) => void;
@@ -36,52 +38,78 @@ export default class Input {
         this.onContextmenu = (e: MouseEvent) => {
             e.preventDefault();
         };
-        this.onMouseMove = (e: MouseEvent) => {
+        this.onPointerMove = (e: PointerEvent) => {
             this.mouseOver = true;
             this.mouseX = e.offsetX;
             this.mouseY = e.offsetY;
             this.triggerCallback();
         };
-        this.onMouseDown = (e: MouseEvent) => {
-            switch (e.button) {
-                case MouseButton.LEFT:
+        this.onPointerDown = (e: PointerEvent) => {
+            this.pointers.set(e.pointerId, true);
+            switch (e.pointerType) {
+                case 'mouse':
+                case 'pen': {
+                    switch (e.button) {
+                        case MouseButton.LEFT:
+                            this.mouseLeft = true;
+                            this.mouseLeftDownThisFrame = true;
+                            break;
+                        case MouseButton.MIDDLE:
+                            this.mouseMiddle = true;
+                            this.mouseMiddleDownThisFrame = true;
+                            break;
+                        case MouseButton.RIGHT:
+                            this.mouseRight = true;
+                            this.mouseRightDownThisFrame = true;
+                            break;
+                    }
+                }
+                    break;
+                default: {
                     this.mouseLeft = true;
                     this.mouseLeftDownThisFrame = true;
-                    break;
-                case MouseButton.MIDDLE:
-                    this.mouseMiddle = true;
-                    this.mouseMiddleDownThisFrame = true;
-                    break;
-                case MouseButton.RIGHT:
-                    this.mouseRight = true;
-                    this.mouseRightDownThisFrame = true;
+                }
                     break;
             }
             this.triggerCallback();
         };
-        this.onMouseUp = (e: MouseEvent) => {
-            switch (e.button) {
-                case MouseButton.LEFT:
+        this.onPointerUp = (e: PointerEvent) => {
+            this.pointers.delete(e.pointerId);
+            switch (e.pointerType) {
+                case 'mouse':
+                case 'pen': {
+                    switch (e.button) {
+                        case MouseButton.LEFT:
+                            this.mouseLeft = false;
+                            this.mouseLeftDownThisFrame = false;
+                            break;
+                        case MouseButton.MIDDLE:
+                            this.mouseMiddle = false;
+                            this.mouseMiddleDownThisFrame = false;
+                            break;
+                        case MouseButton.RIGHT:
+                            this.mouseRight = false;
+                            this.mouseLeftDownThisFrame = false;
+                            break;
+                    }
+                }
+                    break;
+                default: {
                     this.mouseLeft = false;
                     this.mouseLeftDownThisFrame = false;
-                    break;
-                case MouseButton.MIDDLE:
-                    this.mouseMiddle = false;
-                    this.mouseMiddleDownThisFrame = false;
-                    break;
-                case MouseButton.RIGHT:
-                    this.mouseRight = false;
-                    this.mouseLeftDownThisFrame = false;
+                }
                     break;
             }
             this.triggerCallback();
         };
-        this.onMouseLeave = () => {
+        this.onPointerLeave = this.onPointerCancel = (e: PointerEvent) => {
+            this.pointers.delete(e.pointerId);
             this.mouseOver = false;
             this.triggerCallback();
         };
-        this.onMouseOut = (e) => {
+        this.onPointerOut = (e) => {
             if (e.clientY <= 0 || e.clientX <= 0 || (e.clientX >= window.innerWidth || e.clientY >= window.innerHeight)) {
+                this.pointers.delete(e.pointerId);
                 this.mouseLeft = false;
                 this.mouseLeftDownThisFrame = false;
                 this.mouseRight = false;
@@ -121,12 +149,14 @@ export default class Input {
     }
 
     setup(element: HTMLElement) {
+        element.style.touchAction = 'none';
         element.addEventListener('contextmenu', this.onContextmenu);
-        element.addEventListener('mousemove', this.onMouseMove);
-        element.addEventListener('mousedown', this.onMouseDown);
-        element.addEventListener('mouseleave', this.onMouseLeave);
-        document.addEventListener('mouseup', this.onMouseUp);
-        document.addEventListener('mouseout', this.onMouseOut);
+        element.addEventListener('pointermove', this.onPointerMove);
+        element.addEventListener('pointerdown', this.onPointerDown);
+        element.addEventListener('pointerleave', this.onPointerLeave);
+        element.addEventListener('pointercancel', this.onPointerCancel);
+        document.addEventListener('pointerup', this.onPointerUp);
+        document.addEventListener('pointerout', this.onPointerOut);
         element.addEventListener('wheel', this.onWheel);
         window.addEventListener('keydown', this.onKeyDown);
         window.addEventListener('keyup', this.onKeyUp);
@@ -135,11 +165,12 @@ export default class Input {
 
     unload(element: HTMLElement) {
         element.removeEventListener('contextmenu', this.onContextmenu);
-        element.removeEventListener('mousemove', this.onMouseMove);
-        element.removeEventListener('mousedown', this.onMouseDown);
-        element.removeEventListener('mouseleave', this.onMouseLeave);
-        document.removeEventListener('mouseup', this.onMouseUp);
-        document.removeEventListener('mouseout', this.onMouseOut);
+        element.removeEventListener('pointermove', this.onPointerMove);
+        element.removeEventListener('pointerdown', this.onPointerDown);
+        element.removeEventListener('pointerleave', this.onPointerLeave);
+        element.removeEventListener('pointercancel', this.onPointerCancel);
+        document.removeEventListener('pointerup', this.onPointerUp);
+        document.removeEventListener('pointerout', this.onPointerOut);
         element.removeEventListener('wheel', this.onWheel);
         window.removeEventListener('keydown', this.onKeyDown);
         window.removeEventListener('keyup', this.onKeyUp);

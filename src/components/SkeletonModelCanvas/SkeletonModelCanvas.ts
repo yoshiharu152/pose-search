@@ -3,7 +3,8 @@ import {quat, vec3} from 'gl-matrix';
 import {NIcon, NPopconfirm, NSpin} from 'naive-ui';
 import {defineComponent, onBeforeUnmount, onMounted, PropType, ref, watch} from 'vue';
 import {LANDMARK_VISIBILITY_ACCEPTABLE_THRESHOLD} from '../../config';
-import DraggableCamera from '../../utils/DraggableCamera';
+import {addGlobalDragListener} from "../../utils/dom";
+import DraggableCamera, {CAMERA_ZOOM_MAX, CAMERA_ZOOM_MIN} from '../../utils/DraggableCamera';
 import Input from '../../utils/input/Input';
 import {MouseDragContext3D, raycastSphereDragMove, raycastSphereDragStart} from '../../utils/input/mouse-drag';
 import {isPointInCircle} from '../../utils/math/intersect';
@@ -40,7 +41,7 @@ export default defineComponent({
         highlights: Array as PropType<BodyPart[]>,
     },
     emits: ['control-point-click'],
-    setup(props, { emit }) {
+    setup(props, {emit}) {
         const container = ref<HTMLDivElement>();
         const canvas = ref<HTMLCanvasElement>();
         const loading = ref(false);
@@ -184,6 +185,11 @@ export default defineComponent({
         function onInput(input: Input) {
             camera.onInput(input);
             model.update(camera.camera);
+
+            if (input.mouseLeftDownThisFrame) {
+                dragging = false;
+                return;
+            }
 
             // find hovered (works in both readonly and non-readonly modes for click detection)
             if (!dragging) {
@@ -399,11 +405,49 @@ export default defineComponent({
             }
         }
 
+        function onCameraOrbitDown(e: PointerEvent) {
+            const x0 = (-camera.viewportWidth / 2 + e.clientX) / camera.viewportWidth * 2;
+            const y0 = (+camera.viewportHeight / 2 - e.clientY) / camera.viewportHeight * 2;
+            const rx0 = camera.rotateX;
+            const ry0 = camera.rotateY;
+            addGlobalDragListener(
+                e,
+                e => {
+                    const x1 = (-camera.viewportWidth / 2 + e.clientX) / camera.viewportWidth * 2;
+                    const y1 = (+camera.viewportHeight / 2 - e.clientY) / camera.viewportHeight * 2;
+                    const dx = x1 - x0;
+                    const dy = y1 - y0;
+                    camera.rotateX = Math.max(-90, Math.min(90, rx0 + dy * 90));
+                    camera.rotateY = (ry0 - dx * 90) % 360;
+                    camera.update();
+                    model.update(camera.camera);
+                    render();
+                },
+            );
+        }
+
+        function onCameraZoomDown(e: PointerEvent) {
+            const y0 = e.clientY;
+            const z0 = camera.zoom;
+            addGlobalDragListener(
+                e,
+                e => {
+                    const dy = e.clientY - y0;
+                    camera.zoom = Math.max(CAMERA_ZOOM_MIN, Math.min(CAMERA_ZOOM_MAX, z0 + dy / 10));
+                    camera.update();
+                    model.update(camera.camera);
+                    render();
+                },
+            );
+        }
+
         return {
             container,
             canvas,
             loading,
             reset,
+            onCameraOrbitDown,
+            onCameraZoomDown,
         };
     }
 });

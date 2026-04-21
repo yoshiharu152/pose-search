@@ -82,7 +82,7 @@ export default defineComponent({
             zoom.value = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom.value));
         }
 
-        function onMouseDown(e: MouseEvent) {
+        function onPointerDown(e: PointerEvent) {
             if (e.button === 0) {
                 e.preventDefault();
                 e.stopPropagation();
@@ -109,7 +109,7 @@ export default defineComponent({
             close,
             onBackgroundClick,
             onWheel,
-            onMouseDown,
+            onPointerDown,
         };
     }
 });

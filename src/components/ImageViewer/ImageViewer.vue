@@ -17,7 +17,7 @@
                 <img :src="fullLoading ? regular : full"
                      alt=""
                      :style="imgStyle"
-                     @mousedown="onMouseDown"
+                     @pointerdown="onPointerDown"
                 >
             </div>
 
@@ -68,6 +68,7 @@
             box-shadow: 0 0 12px rgba(0, 0, 0, .5);
             user-select: none;
             cursor: grab;
+            touch-action: none;
         }
     }
 

@@ -12,38 +12,44 @@ export function isElementInViewport(el: Element) {
 
 /**
  * Allow mouse dragging outside the dragged element.
- * @param immediatelyTriggerEvent If not null, immediately trigger drag move event when called
- * @param onDragMove
- * @param onDragEnd
  */
 export function addGlobalDragListener(
-    immediatelyTriggerEvent: MouseEvent | null,
-    onDragMove: (e: MouseEvent) => void,
-    onDragEnd?: (e: MouseEvent) => void
+    startEvent: PointerEvent,
+    onDragMove: (e: PointerEvent) => void,
+    onDragEnd?: (e: PointerEvent) => void
 ) {
-    let onMouseUp: (e: MouseEvent) => void;
-    let onMouseOutOfWindow: (e: MouseEvent) => void;
-    let _onDragMove = (e: MouseEvent) => {
-        return onDragMove(e);
+    const target = startEvent.target as HTMLElement;
+    const pointerId = startEvent.pointerId;
+
+    target.setPointerCapture(pointerId);
+
+    const onPointerMove = (e: PointerEvent) => {
+        if (e.pointerId !== pointerId) return;
+        onDragMove(e);
     };
-    let _onDragEnd = (e: MouseEvent) => {
-        document.removeEventListener('mousemove', _onDragMove);
-        document.removeEventListener('mouseup', onMouseUp);
-        document.removeEventListener('mouseout', onMouseOutOfWindow);
-        return onDragEnd && onDragEnd(e);
-    };
-    onMouseUp = _onDragEnd;
-    onMouseOutOfWindow = (e: MouseEvent) => {
-        if (!e.relatedTarget || ((e.relatedTarget as HTMLElement).nodeName === 'HTML')) {
-            _onDragEnd(e);
+
+    const end = (e: PointerEvent) => {
+        if (e.pointerId !== pointerId) return;
+
+        cleanup();
+
+        try {
+            target.releasePointerCapture(pointerId);
+        } catch {
         }
+
+        onDragEnd?.(e);
     };
 
-    document.addEventListener('mousemove', _onDragMove);
-    document.addEventListener('mouseup', onMouseUp);
-    document.addEventListener('mouseout', onMouseOutOfWindow);
+    const cleanup = () => {
+        document.removeEventListener('pointermove', onPointerMove);
+        document.removeEventListener('pointerup', end);
+        document.removeEventListener('pointercancel', end);
+    };
 
-    if (immediatelyTriggerEvent) {
-        _onDragMove(immediatelyTriggerEvent);
-    }
+    document.addEventListener('pointermove', onPointerMove);
+    document.addEventListener('pointerup', end);
+    document.addEventListener('pointercancel', end);
+
+    onDragMove(startEvent);
 }

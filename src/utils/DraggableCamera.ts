@@ -5,15 +5,15 @@ import Camera3D from './render/camera/Camera3D';
 import OrthographicCamera from './render/camera/OrthographicCamera';
 import PerspectiveCamera from './render/camera/PerspectiveCamera';
 
-const CAMERA_ZOOM_IN_STEP = 0.9;
-const CAMERA_ZOOM_MIN = -12;
-const CAMERA_ZOOM_OUT_STEP = 1.2;
-const CAMERA_ZOOM_MAX = 4;
+export const CAMERA_ZOOM_IN_STEP = 0.9;
+export const CAMERA_ZOOM_MIN = -12;
+export const CAMERA_ZOOM_OUT_STEP = 1.2;
+export const CAMERA_ZOOM_MAX = 4;
 
 export default class DraggableCamera {
 
-    private viewportWidth: number = 1;
-    private viewportHeight: number = 1;
+    viewportWidth: number = 1;
+    viewportHeight: number = 1;
 
     private readonly perspectiveCamera: PerspectiveCamera;
     private readonly orthographicCamera: OrthographicCamera;
