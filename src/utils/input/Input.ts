@@ -17,6 +17,7 @@ export default class Input {
     wheelDetX: number = 0;
     wheelDetY: number = 0;
     pointers: Map<number, boolean> = new Map();
+    isTouch: boolean = false;
 
     private readonly onContextmenu: (e: MouseEvent) => void;
     private readonly onPointerMove: (e: PointerEvent) => void;
@@ -49,6 +50,7 @@ export default class Input {
             switch (e.pointerType) {
                 case 'mouse':
                 case 'pen': {
+                    this.isTouch = false;
                     switch (e.button) {
                         case MouseButton.LEFT:
                             this.mouseLeft = true;
@@ -68,6 +70,7 @@ export default class Input {
                 default: {
                     this.mouseLeft = true;
                     this.mouseLeftDownThisFrame = true;
+                    this.isTouch = true;
                 }
                     break;
             }

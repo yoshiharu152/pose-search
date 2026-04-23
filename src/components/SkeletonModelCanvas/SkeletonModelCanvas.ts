@@ -186,7 +186,7 @@ export default defineComponent({
             camera.onInput(input);
             model.update(camera.camera);
 
-            if (input.mouseLeftDownThisFrame) {
+            if (input.mouseLeftDownThisFrame && input.isTouch) {
                 dragging = false;
                 return;
             }

@@ -66,16 +66,6 @@
                     <span>Support me:&nbsp;</span>
                     <a href="https://ko-fi.com/x6udpngx" target="_blank">Ko-fi.com/x6udpngx</a>
                 </div>
-                <div>
-                    <a href="https://x6ud.github.io/human-anatomy-for-artist-search-helper" target="_blank">
-                        Male body art reference search
-                    </a>
-                </div>
-                <div>
-                    <a href="https://x6ud.github.io/female-anatomy-for-artist-search-helper" target="_blank">
-                        Female body art reference search
-                    </a>
-                </div>
             </div>
         </div>
         <div class="fill">
