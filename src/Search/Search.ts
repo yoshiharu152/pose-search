@@ -24,6 +24,15 @@ import MatchShoulder from './impl/MatchShoulder';
 import MatchShoulderCameraUnrelated from './impl/MatchShoulderCameraUnrelated';
 import {filterAndSort, PoseMatcher, SearchResult} from './impl/search';
 
+// 服装キーワードマッピング定義
+const clothingKeywords: Record<string, string[]> = {
+    suit: ['suit', 'jacket', 'blazer', 'formal'],
+    shirt: ['shirt', 'blouse', 'collared'],
+    loose: ['hoodie', 'sweatshirt', 'loose', 'oversized', 'coat'],
+    kimono: ['kimono', 'yukata', 'traditional', 'haori'],
+    inner: ['inner', 'tight', 'swimsuit', 'underwear', 'bare']
+};
+
 const matchers: {
     [name: string]: {
         matcher: PoseMatcher,
@@ -35,7 +44,7 @@ const matchers: {
         matcher: new MatchFace(),
         highlights: [BodyPart.head]
     },
-    'Chest': {
+    'Chest / Spine': { // 腰・背骨の選択項目を追加
         matcher: new MatchChest(),
         highlights: [BodyPart.trunk]
     },
@@ -59,7 +68,7 @@ const matchers: {
         cameraUnrelatedMatcher: new MatchElbowCameraUnrelated(false),
         highlights: [BodyPart.rightUpperArm, BodyPart.rightLowerArm]
     },
-    'Crotch': {
+    'Crotch / Waist': { // 股関節・腰まわり
         matcher: new MatchCrotch(),
         highlights: [BodyPart.trunk]
     },
@@ -83,6 +92,10 @@ const matchers: {
         cameraUnrelatedMatcher: new MatchKneeCameraUnrelated(false),
         highlights: [BodyPart.rightThigh, BodyPart.rightCalf]
     },
+    'Full Body': { // 全身検索オプションの追加
+        matcher: new MatchChest(),
+        highlights: [BodyPart.head, BodyPart.trunk, BodyPart.leftUpperArm, BodyPart.rightUpperArm, BodyPart.leftThigh, BodyPart.rightThigh]
+    }
 };
 
 export default defineComponent({
@@ -113,7 +126,7 @@ export default defineComponent({
         const bodyPartOptions = Object.keys(matchers).map(option => ({value: option, label: option}));
         const bodyPart = ref<string>();
         const gender = ref(0);
-        const clothingType = ref('all'); // 服装フィルター用変数を追加
+        const clothingType = ref('all');
         const cameraRelated = ref(1);
 
         const searching = ref(false);
@@ -141,9 +154,21 @@ export default defineComponent({
                 const bodyPartMatchers = matchers[bodyPart.value!];
                 if (bodyPartMatchers) {
                     let list = dataset.data;
+                    
+                    // 性別フィルター
                     if (gender.value) {
                         list = list.filter(photo => photo.gender === gender.value);
                     }
+
+                    // 服装（Outfit）タグ・キーワードフィルター
+                    if (clothingType.value && clothingType.value !== 'all') {
+                        const targets = clothingKeywords[clothingType.value] || [];
+                        list = list.filter(photo => {
+                            const raw = JSON.stringify(photo).toLowerCase();
+                            return targets.some(kw => raw.includes(kw));
+                        });
+                    }
+
                     const matcher = !cameraRelated.value && bodyPartMatchers.cameraUnrelatedMatcher ?
                         bodyPartMatchers.cameraUnrelatedMatcher
                         : bodyPartMatchers.matcher;
@@ -197,7 +222,7 @@ export default defineComponent({
             bodyPartOptions,
             bodyPart,
             gender,
-            clothingType, // UIへ変数を引き渡し
+            clothingType,
             cameraRelated,
 
             searchResult,
