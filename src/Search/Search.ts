@@ -113,6 +113,7 @@ export default defineComponent({
         const bodyPartOptions = Object.keys(matchers).map(option => ({value: option, label: option}));
         const bodyPart = ref<string>();
         const gender = ref(0);
+        const clothingType = ref('all'); // 服装フィルター用変数を追加
         const cameraRelated = ref(1);
 
         const searching = ref(false);
@@ -161,7 +162,6 @@ export default defineComponent({
         }
 
         function onControlPointClick(clickedBodyPart: BodyPart) {
-            // Find the best matching dropdown option for this body part
             let bestMatch: string | null = null;
             let bestScore = -1;
 
@@ -170,7 +170,6 @@ export default defineComponent({
                 const index = highlights.indexOf(clickedBodyPart);
                 
                 if (index >= 0) {
-                    // Score: prefer options where the clicked part is first, and prefer fewer highlights (more specific)
                     const score = (highlights.length - index) * 100 - highlights.length;
                     if (score > bestScore) {
                         bestScore = score;
@@ -198,6 +197,7 @@ export default defineComponent({
             bodyPartOptions,
             bodyPart,
             gender,
+            clothingType, // UIへ変数を引き渡し
             cameraRelated,
 
             searchResult,
