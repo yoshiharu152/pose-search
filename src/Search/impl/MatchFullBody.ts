@@ -1,31 +1,69 @@
 import SkeletonModel from '../../components/SkeletonModelCanvas/model/SkeletonModel';
 import Photo from '../../utils/Photo';
 import MatchChest from './MatchChest';
-import MatchCrotch from './MatchCrotch';
+import MatchElbow from './MatchElbow';
+import MatchHip from './MatchHip';
+import MatchKnee from './MatchKnee';
+import MatchShoulder from './MatchShoulder';
 import { MatchResult, PoseMatcher } from './search';
 
 export default class MatchFullBody implements PoseMatcher {
-    private chestMatcher = new MatchChest();
-    private crotchMatcher = new MatchCrotch();
+    private matchers: PoseMatcher[];
+
+    constructor() {
+        this.matchers = [
+            new MatchChest() as PoseMatcher,
+            new MatchShoulder(true) as PoseMatcher,
+            new MatchShoulder(false) as PoseMatcher,
+            new MatchElbow(true) as PoseMatcher,
+            new MatchElbow(false) as PoseMatcher,
+            new MatchHip(true) as PoseMatcher,
+            new MatchHip(false) as PoseMatcher,
+            new MatchKnee(true) as PoseMatcher,
+            new MatchKnee(false) as PoseMatcher
+        ];
+    }
 
     prepare(model: SkeletonModel): void {
-        this.chestMatcher.prepare(model);
-        this.crotchMatcher.prepare(model);
+        for (const matcher of this.matchers) {
+            if (matcher.prepare) {
+                matcher.prepare(model);
+            }
+        }
     }
 
     match(photo: Photo): MatchResult | null {
-        const resChest = this.chestMatcher.match(photo);
-        const resCrotch = this.crotchMatcher.match(photo);
+        let totalScore = 0;
+        let count = 0;
+        let isFlipped = false;
+        let sampleResult: MatchResult | null = null;
 
-        if (!resChest && !resCrotch) return null;
+        for (const matcher of this.matchers) {
+            try {
+                const result = matcher.match(photo);
+                if (result && typeof result.score === 'number' && !isNaN(result.score)) {
+                    totalScore += result.score;
+                    count++;
+                    if (result.flip) {
+                        isFlipped = true;
+                    }
+                    if (!sampleResult) {
+                        sampleResult = result;
+                    }
+                }
+            } catch {
+                // 安全にスキップ
+            }
+        }
 
-        const score1 = resChest ? resChest.score : -100;
-        const score2 = resCrotch ? resCrotch.score : -100;
-        const flip = resChest ? resChest.flip : (resCrotch ? resCrotch.flip : false);
+        if (count === 0 || !sampleResult) {
+            return null;
+        }
 
         return {
-            score: (score1 + score2) / 2,
-            flip: flip
+            ...sampleResult,
+            score: totalScore / count,
+            flip: isFlipped
         };
     }
 }
