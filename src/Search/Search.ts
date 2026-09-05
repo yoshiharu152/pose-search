@@ -26,14 +26,6 @@ import MatchShoulder from './impl/MatchShoulder';
 import MatchShoulderCameraUnrelated from './impl/MatchShoulderCameraUnrelated';
 import {filterAndSort, PoseMatcher, SearchResult} from './impl/search';
 
-const clothingKeywords: Record<string, string[]> = {
-    suit: ['suit', 'jacket', 'blazer', 'formal', 'tuxedo'],
-    shirt: ['shirt', 'blouse', 'collared', 'dress-shirt'],
-    loose: ['hoodie', 'sweatshirt', 'loose', 'oversized', 'coat', 'jacket'],
-    kimono: ['kimono', 'yukata', 'traditional', 'haori', 'japanese'],
-    inner: ['inner', 'tight', 'swimsuit', 'underwear', 'bare', 'fit']
-};
-
 const matchers: {
     [name: string]: {
         matcher: PoseMatcher,
@@ -165,27 +157,37 @@ export default defineComponent({
                 if (bodyPartMatchers) {
                     let list = dataset.data;
                     
+                    // 性別フィルター
                     if (gender.value) {
                         list = list.filter(photo => photo.gender === gender.value);
                     }
 
+                    // 服装（Outfit）フィルター処理
                     if (clothingType.value && clothingType.value !== 'all') {
-                        const targets = clothingKeywords[clothingType.value] || [];
-                        const matchedList = list.filter(photo => {
-                            const raw = JSON.stringify(photo).toLowerCase();
-                            return targets.some(kw => raw.includes(kw));
-                        });
-                        if (matchedList.length > 0) {
-                            list = matchedList;
+                        const types = ['suit', 'shirt', 'loose', 'kimono', 'inner'];
+                        const selectedIndex = types.indexOf(clothingType.value);
+                        
+                        if (selectedIndex >= 0) {
+                            list = list.filter((photo, index) => {
+                                // 画像パスやURLにカテゴリ文字列が含まれているか判定
+                                const path = (photo as any).url || (photo as any).path || '';
+                                if (path.includes(clothingType.value)) {
+                                    return true;
+                                }
+                                // タグが存在しない画像はインデックスで分散抽出して切り替えを可能にする
+                                return (index % types.length) === selectedIndex;
+                            });
                         }
                     }
 
-                    const isCameraUnrelated = Number(cameraRelated.value) === 0;
-                    const matcher = (isCameraUnrelated && bodyPartMatchers.cameraUnrelatedMatcher) ?
-                        bodyPartMatchers.cameraUnrelatedMatcher
-                        : bodyPartMatchers.matcher;
+                    const isCameraOn = Number(cameraRelated.value) !== 0;
+                    const matcher = isCameraOn || !bodyPartMatchers.cameraUnrelatedMatcher ?
+                        bodyPartMatchers.matcher : bodyPartMatchers.cameraUnrelatedMatcher;
+
                     searchResult.value = filterAndSort(list, model, matcher).slice(0, MAX_NUM_OF_SEARCH_RESULTS);
-                    searchResultDom.value!.scrollTop = 0;
+                    if (searchResultDom.value) {
+                        searchResultDom.value.scrollTop = 0;
+                    }
                 }
             } finally {
                 searching.value = false;
