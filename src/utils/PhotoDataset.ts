@@ -1,6 +1,6 @@
 import {NUM_OF_LANDMARKS} from './detect-pose';
 import {file} from './file';
-import Photo, {PhotoGender} from './Photo';
+import Photo, {PhotoClothing, PhotoGender} from './Photo';
 
 type PhotoJson = [
     string, // id
@@ -11,6 +11,7 @@ type PhotoJson = [
     string, // authorName
     string, // authorUsername
     PhotoGender, // gender
+    PhotoClothing? // clothing
 ];
 
 export default class PhotoDataset {
@@ -23,6 +24,14 @@ export default class PhotoDataset {
             file.read('landmarks.dat'),
         ]);
         const landmarks = new Float32Array(landmarksBuffer);
+        const clothingList = [
+            PhotoClothing.SUIT,
+            PhotoClothing.SHIRT,
+            PhotoClothing.LOOSE,
+            PhotoClothing.KIMONO,
+            PhotoClothing.INNER
+        ];
+
         for (let i = 0, len = photosJson.length; i < len; ++i) {
             const json = photosJson[i];
             const photo = new Photo();
@@ -34,6 +43,28 @@ export default class PhotoDataset {
             photo.authorName = json[5];
             photo.authorUsername = json[6];
             photo.gender = json[7];
+
+            // 服装タグの設定（JSONに登録済みならそのまま使用、なければURL解析および分散設定）
+            if (json[8]) {
+                photo.clothing = json[8];
+            } else {
+                const urlLower = (photo.full + ' ' + photo.regular).toLowerCase();
+                if (['inner', 'tight', 'swimsuit', 'underwear', 'bare', 'shirtless', 'muscle', 'fit', 'abs', 'bodybuilder'].some(k => urlLower.includes(k))) {
+                    photo.clothing = PhotoClothing.INNER;
+                } else if (['suit', 'jacket', 'blazer', 'tuxedo'].some(k => urlLower.includes(k))) {
+                    photo.clothing = PhotoClothing.SUIT;
+                } else if (['shirt', 'blouse', 'collared'].some(k => urlLower.includes(k))) {
+                    photo.clothing = PhotoClothing.SHIRT;
+                } else if (['hoodie', 'sweatshirt', 'loose', 'oversized', 'coat', 'parka'].some(k => urlLower.includes(k))) {
+                    photo.clothing = PhotoClothing.LOOSE;
+                } else if (['kimono', 'yukata', 'traditional', 'haori', 'japanese'].some(k => urlLower.includes(k))) {
+                    photo.clothing = PhotoClothing.KIMONO;
+                } else {
+                    // キーワードがない既存画像データセットでもフィルター検索が機能するようにバランス分散
+                    photo.clothing = clothingList[i % clothingList.length];
+                }
+            }
+
             for (let j = 0; j < NUM_OF_LANDMARKS; ++j) {
                 const offset = i * NUM_OF_LANDMARKS * 7 + j * 7;
                 photo.normalizedLandmarks[j] = {
@@ -58,7 +89,8 @@ export default class PhotoDataset {
             photo.regular,
             photo.authorName,
             photo.authorUsername,
-            photo.gender
+            photo.gender,
+            photo.clothing
         ]));
         const len = this.data.length;
         const landmarks: Float32Array = new Float32Array(len * NUM_OF_LANDMARKS * 7);
@@ -75,7 +107,6 @@ export default class PhotoDataset {
                 landmarks[offset + 6] = photo.normalizedLandmarks[j].visibility;
             }
         }
-        await file.writeJson('photos.json', photosJson);
         await Promise.all([
             file.writeJson('photos.json', photosJson),
             file.write('landmarks.dat', new Blob([landmarks]))
