@@ -11,7 +11,6 @@ export default class MatchFullBody implements PoseMatcher {
     private matchers: PoseMatcher[];
 
     constructor() {
-        // 各部位のマッチャーを安全に配列として保持
         this.matchers = [
             new MatchChest() as PoseMatcher,
             new MatchShoulder(true) as PoseMatcher,
@@ -25,20 +24,29 @@ export default class MatchFullBody implements PoseMatcher {
         ];
     }
 
-    match(model: SkeletonModel, photo: Photo): number {
+    // PoseMatcherに必要な prepare(model) を実装
+    prepare(model: SkeletonModel): void {
+        for (const matcher of this.matchers) {
+            if (matcher.prepare) {
+                matcher.prepare(model);
+            }
+        }
+    }
+
+    // PoseMatcherに必要な match(photo) を実装 (1つの引数)
+    match(photo: Photo): number {
         let total = 0;
         let count = 0;
 
-        // 各部位のスコアを計算（エラー落ちを防ぐ安全設計）
         for (const matcher of this.matchers) {
             try {
-                const score = matcher.match(model, photo);
+                const score = matcher.match(photo);
                 if (typeof score === 'number' && !isNaN(score)) {
                     total += score;
                     count++;
                 }
             } catch {
-                // 個別部位でエラーが出た場合はスキップ
+                // 安全にスキップ
             }
         }
 
