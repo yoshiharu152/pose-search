@@ -25,40 +25,47 @@ export default class MatchFullBody implements PoseMatcher {
     }
 
     match(photo: Photo): MatchResult | null {
-        // 各主要部位のマッチング計算
-        const results = [
-            this.chest.match(photo),
-            this.crotch.match(photo),
-            this.shoulderLeft.match(photo),
-            this.shoulderRight.match(photo),
-            this.kneeLeft.match(photo),
-            this.kneeRight.match(photo)
-        ].filter((r): r is MatchResult => r !== null);
+        // 各マッチャーの計算を個別に実行
+        const resChest = this.chest.match(photo);
+        const resCrotch = this.crotch.match(photo);
+        const resShoulderL = this.shoulderLeft.match(photo);
+        const resShoulderR = this.shoulderRight.match(photo);
+        const resKneeL = this.kneeLeft.match(photo);
+        const resKneeR = this.kneeRight.match(photo);
 
-        // 一定以上の部位が一致していない場合は不適合とする
-        if (results.length < 2) return null;
+        const allResults = [resChest, resCrotch, resShoulderL, resShoulderR, resKneeL, resKneeR];
+        const validResults = allResults.filter((r): r is MatchResult => r !== null);
 
-        // 全部位の平均スコアを算出
-        const totalScore = results.reduce((sum, r) => sum + r.score, 0);
-        const avgScore = totalScore / results.length;
+        // 胸または腰すら検出できない画像は除外
+        if (!resChest && !resCrotch) return null;
 
-        // 写真のランドマークから「全身の中心点（腰〜胸の中間）」を計算してズーム位置を固定
+        // 得られたスコアの合計値（マッチした部位が多い＆精度が高いほどハイスコア）
+        let totalScore = 0;
+        for (const r of validResults) {
+            totalScore += r.score;
+        }
+
+        // マッチした部位数に応じたボーナス（全身の多くの部位が一致している画像を優遇）
+        const finalScore = totalScore * (validResults.length / 6);
+
         const normalized = photo.normalizedLandmarks;
         const centerPoint = mid(
             mid(normalized[11].point, normalized[12].point), // 両肩の中央
             mid(normalized[23].point, normalized[24].point)  // 両腰の中央
         );
 
+        const sample = resChest || resCrotch || validResults[0];
+
         return {
-            score: avgScore,
-            center: centerPoint, // 全身の中心を指定することで手足のドアップ化を防止
+            score: finalScore,
+            center: centerPoint, // 全身の中央にカメラを固定
             related: [
                 normalized[11].point,
                 normalized[12].point,
                 normalized[23].point,
                 normalized[24].point
             ],
-            flip: results[0].flip
+            flip: sample ? sample.flip : false
         };
     }
 }
