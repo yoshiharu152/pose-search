@@ -29,6 +29,19 @@
                 </n-radio-group>
             </div>
 
+            <!-- 追加：服装・シワ用フィルター（着物付き） -->
+            <div class="cols search-condition">
+                <label>Outfit</label>
+                <n-radio-group size="small" v-model:value="clothingType">
+                    <n-radio value="all">Any</n-radio>
+                    <n-radio value="suit">スーツ</n-radio>
+                    <n-radio value="shirt">シャツ</n-radio>
+                    <n-radio value="loose">パーカー</n-radio>
+                    <n-radio value="kimono">着物・和服</n-radio>
+                    <n-radio value="inner">インナー</n-radio>
+                </n-radio-group>
+            </div>
+
             <div class="cols search-condition"
                  v-show="matchers[bodyPart]?.cameraUnrelatedMatcher"
             >
