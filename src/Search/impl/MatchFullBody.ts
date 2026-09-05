@@ -5,7 +5,7 @@ import MatchElbow from './MatchElbow';
 import MatchHip from './MatchHip';
 import MatchKnee from './MatchKnee';
 import MatchShoulder from './MatchShoulder';
-import { PoseMatcher } from './search';
+import { MatchResult, PoseMatcher } from './search';
 
 export default class MatchFullBody implements PoseMatcher {
     private matchers: PoseMatcher[];
@@ -24,7 +24,6 @@ export default class MatchFullBody implements PoseMatcher {
         ];
     }
 
-    // PoseMatcherに必要な prepare(model) を実装
     prepare(model: SkeletonModel): void {
         for (const matcher of this.matchers) {
             if (matcher.prepare) {
@@ -33,23 +32,33 @@ export default class MatchFullBody implements PoseMatcher {
         }
     }
 
-    // PoseMatcherに必要な match(photo) を実装 (1つの引数)
-    match(photo: Photo): number {
-        let total = 0;
+    match(photo: Photo): MatchResult | null {
+        let totalScore = 0;
         let count = 0;
+        let isFlipped = false;
 
         for (const matcher of this.matchers) {
             try {
-                const score = matcher.match(photo);
-                if (typeof score === 'number' && !isNaN(score)) {
-                    total += score;
+                const result = matcher.match(photo);
+                if (result && typeof result.score === 'number' && !isNaN(result.score)) {
+                    totalScore += result.score;
                     count++;
+                    if (result.flip) {
+                        isFlipped = true;
+                    }
                 }
             } catch {
                 // 安全にスキップ
             }
         }
 
-        return count > 0 ? total / count : 0;
+        if (count === 0) {
+            return null;
+        }
+
+        return {
+            score: totalScore / count,
+            flip: isFlipped
+        } as MatchResult;
     }
 }
