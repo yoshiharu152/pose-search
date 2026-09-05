@@ -8,46 +8,40 @@ import MatchShoulder from './MatchShoulder';
 import { PoseMatcher } from './search';
 
 export default class MatchFullBody implements PoseMatcher {
-    private chestMatcher: PoseMatcher;
-    private leftShoulderMatcher: PoseMatcher;
-    private rightShoulderMatcher: PoseMatcher;
-    private leftElbowMatcher: PoseMatcher;
-    private rightElbowMatcher: PoseMatcher;
-    private leftHipMatcher: PoseMatcher;
-    private rightHipMatcher: PoseMatcher;
-    private leftKneeMatcher: PoseMatcher;
-    private rightKneeMatcher: PoseMatcher;
+    private matchers: PoseMatcher[];
 
     constructor() {
-        this.chestMatcher = new MatchChest();
-        this.leftShoulderMatcher = new MatchShoulder(true);
-        this.rightShoulderMatcher = new MatchShoulder(false);
-        this.leftElbowMatcher = new MatchElbow(true);
-        this.rightElbowMatcher = new MatchElbow(false);
-        this.leftHipMatcher = new MatchHip(true);
-        this.rightHipMatcher = new MatchHip(false);
-        this.leftKneeMatcher = new MatchKnee(true);
-        this.rightKneeMatcher = new MatchKnee(false);
+        // 各部位のマッチャーを安全に配列として保持
+        this.matchers = [
+            new MatchChest() as PoseMatcher,
+            new MatchShoulder(true) as PoseMatcher,
+            new MatchShoulder(false) as PoseMatcher,
+            new MatchElbow(true) as PoseMatcher,
+            new MatchElbow(false) as PoseMatcher,
+            new MatchHip(true) as PoseMatcher,
+            new MatchHip(false) as PoseMatcher,
+            new MatchKnee(true) as PoseMatcher,
+            new MatchKnee(false) as PoseMatcher
+        ];
     }
 
     match(model: SkeletonModel, photo: Photo): number {
-        // 各部位のスコアを取得して安全に平均値を算出
-        const scores = [
-            this.chestMatcher.match(model, photo),
-            this.leftShoulderMatcher.match(model, photo),
-            this.rightShoulderMatcher.match(model, photo),
-            this.leftElbowMatcher.match(model, photo),
-            this.rightElbowMatcher.match(model, photo),
-            this.leftHipMatcher.match(model, photo),
-            this.rightHipMatcher.match(model, photo),
-            this.leftKneeMatcher.match(model, photo),
-            this.rightKneeMatcher.match(model, photo)
-        ];
+        let total = 0;
+        let count = 0;
 
-        const validScores = scores.filter(s => typeof s === 'number' && !isNaN(s));
-        if (validScores.length === 0) return 0;
+        // 各部位のスコアを計算（エラー落ちを防ぐ安全設計）
+        for (const matcher of this.matchers) {
+            try {
+                const score = matcher.match(model, photo);
+                if (typeof score === 'number' && !isNaN(score)) {
+                    total += score;
+                    count++;
+                }
+            } catch {
+                // 個別部位でエラーが出た場合はスキップ
+            }
+        }
 
-        const sum = validScores.reduce((acc, curr) => acc + curr, 0);
-        return sum / validScores.length;
+        return count > 0 ? total / count : 0;
     }
 }
