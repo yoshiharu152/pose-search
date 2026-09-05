@@ -26,6 +26,14 @@ import MatchShoulder from './impl/MatchShoulder';
 import MatchShoulderCameraUnrelated from './impl/MatchShoulderCameraUnrelated';
 import {filterAndSort, PoseMatcher, SearchResult} from './impl/search';
 
+const clothingKeywords: Record<string, string[]> = {
+    suit: ['suit', 'jacket', 'blazer', 'formal', 'tuxedo'],
+    shirt: ['shirt', 'blouse', 'collared', 'dress-shirt'],
+    loose: ['hoodie', 'sweatshirt', 'loose', 'oversized', 'coat', 'jacket'],
+    kimono: ['kimono', 'yukata', 'traditional', 'haori', 'japanese'],
+    inner: ['inner', 'tight', 'swimsuit', 'underwear', 'bare', 'fit']
+};
+
 const matchers: {
     [name: string]: {
         matcher: PoseMatcher,
@@ -157,21 +165,23 @@ export default defineComponent({
                 if (bodyPartMatchers) {
                     let list = dataset.data;
                     
-                    // 性別フィルター
                     if (gender.value) {
                         list = list.filter(photo => photo.gender === gender.value);
                     }
 
-                    // 服装（Outfit）簡易フィルタリング（IDハッシュ分散による擬似絞り込み）
                     if (clothingType.value && clothingType.value !== 'all') {
-                        const keys = ['suit', 'shirt', 'loose', 'kimono', 'inner'];
-                        const typeIndex = keys.indexOf(clothingType.value);
-                        if (typeIndex >= 0) {
-                            list = list.filter((photo, idx) => (idx % keys.length) === typeIndex || (photo.id % keys.length) === typeIndex);
+                        const targets = clothingKeywords[clothingType.value] || [];
+                        const matchedList = list.filter(photo => {
+                            const raw = JSON.stringify(photo).toLowerCase();
+                            return targets.some(kw => raw.includes(kw));
+                        });
+                        if (matchedList.length > 0) {
+                            list = matchedList;
                         }
                     }
 
-                    const matcher = !cameraRelated.value && bodyPartMatchers.cameraUnrelatedMatcher ?
+                    const isCameraUnrelated = Number(cameraRelated.value) === 0;
+                    const matcher = (isCameraUnrelated && bodyPartMatchers.cameraUnrelatedMatcher) ?
                         bodyPartMatchers.cameraUnrelatedMatcher
                         : bodyPartMatchers.matcher;
                     searchResult.value = filterAndSort(list, model, matcher).slice(0, MAX_NUM_OF_SEARCH_RESULTS);
