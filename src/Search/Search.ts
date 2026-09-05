@@ -11,6 +11,7 @@ import {isMouseSupported, isWebGL2Supported} from '../utils/browser-support';
 import DraggableCamera from '../utils/DraggableCamera';
 import Photo from '../utils/Photo';
 import PhotoDataset from '../utils/PhotoDataset';
+
 import MatchChest from './impl/MatchChest';
 import MatchCrotch from './impl/MatchCrotch';
 import MatchElbow from './impl/MatchElbow';
@@ -26,11 +27,11 @@ import MatchShoulderCameraUnrelated from './impl/MatchShoulderCameraUnrelated';
 import {filterAndSort, PoseMatcher, SearchResult} from './impl/search';
 
 const clothingKeywords: Record<string, string[]> = {
-    suit: ['suit', 'jacket', 'blazer', 'スーツ', 'ジャケット'],
-    shirt: ['shirt', 'blouse', 'ワイシャツ', 'シャツ'],
-    loose: ['hoodie', 'sweatshirt', 'loose', 'oversized', 'パーカー', 'ダボ'],
-    kimono: ['kimono', 'yukata', 'haori', '着物', '浴衣', '和服'],
-    inner: ['inner', 'tight', 'swimsuit', 'インナー', '素体']
+    suit: ['suit', 'jacket', 'blazer', 'formal', 'tuxedo'],
+    shirt: ['shirt', 'blouse', 'collared', 'dress-shirt'],
+    loose: ['hoodie', 'sweatshirt', 'loose', 'oversized', 'coat', 'jacket'],
+    kimono: ['kimono', 'yukata', 'traditional', 'haori', 'japanese'],
+    inner: ['inner', 'tight', 'swimsuit', 'underwear', 'bare', 'fit']
 };
 
 const matchers: {
@@ -40,6 +41,21 @@ const matchers: {
         highlights: BodyPart[],
     }
 } = {
+    'Full Body': {
+        matcher: new MatchFullBody(),
+        highlights: [
+            BodyPart.head,
+            BodyPart.trunk,
+            BodyPart.leftUpperArm,
+            BodyPart.leftLowerArm,
+            BodyPart.rightUpperArm,
+            BodyPart.rightLowerArm,
+            BodyPart.leftThigh,
+            BodyPart.leftCalf,
+            BodyPart.rightThigh,
+            BodyPart.rightCalf
+        ]
+    },
     'Face': {
         matcher: new MatchFace(),
         highlights: [BodyPart.head]
@@ -91,21 +107,6 @@ const matchers: {
         matcher: new MatchKnee(false),
         cameraUnrelatedMatcher: new MatchKneeCameraUnrelated(false),
         highlights: [BodyPart.rightThigh, BodyPart.rightCalf]
-    },
-    'Full Body': {
-        matcher: new MatchFullBody(),
-        highlights: [
-            BodyPart.head,
-            BodyPart.trunk,
-            BodyPart.leftUpperArm,
-            BodyPart.leftLowerArm,
-            BodyPart.rightUpperArm,
-            BodyPart.rightLowerArm,
-            BodyPart.leftThigh,
-            BodyPart.leftCalf,
-            BodyPart.rightThigh,
-            BodyPart.rightCalf
-        ]
     }
 };
 
@@ -116,9 +117,7 @@ export default defineComponent({
         NRadio,
         NRadioGroup,
         NIcon,
-
         WarningOutlined,
-
         SkeletonModelCanvas,
         ImageClip,
         ImageViewer,
@@ -135,7 +134,7 @@ export default defineComponent({
 
         const dbLoading = ref(false);
         const bodyPartOptions = Object.keys(matchers).map(option => ({value: option, label: option}));
-        const bodyPart = ref<string>();
+        const bodyPart = ref<string>('Full Body');
         const gender = ref(0);
         const clothingType = ref('all');
         const cameraRelated = ref(1);
@@ -165,16 +164,16 @@ export default defineComponent({
                 const bodyPartMatchers = matchers[bodyPart.value!];
                 if (bodyPartMatchers) {
                     let list = dataset.data;
-
+                    
                     if (gender.value) {
                         list = list.filter(photo => photo.gender === gender.value);
                     }
 
                     if (clothingType.value && clothingType.value !== 'all') {
-                        const keywords = clothingKeywords[clothingType.value] || [];
+                        const targets = clothingKeywords[clothingType.value] || [];
                         const matchedList = list.filter(photo => {
-                            const str = JSON.stringify(photo).toLowerCase();
-                            return keywords.some(kw => str.includes(kw));
+                            const raw = JSON.stringify(photo).toLowerCase();
+                            return targets.some(kw => raw.includes(kw));
                         });
                         if (matchedList.length > 0) {
                             list = matchedList;
@@ -203,6 +202,7 @@ export default defineComponent({
             let bestScore = -1;
 
             for (const [optionName, matcherData] of Object.entries(matchers)) {
+                if (optionName === 'Full Body') continue;
                 const highlights = matcherData.highlights;
                 const index = highlights.indexOf(clickedBodyPart);
                 
