@@ -1,6 +1,6 @@
 import {NUM_OF_LANDMARKS} from './detect-pose';
 import {file} from './file';
-import Photo, {PhotoClothing, PhotoGender} from './Photo';
+import Photo, {PhotoClothing, PhotoGender, getPhotoClothingByTags} from './Photo';
 
 type PhotoJson = [
     string, // id
@@ -45,23 +45,21 @@ export default class PhotoDataset {
             photo.gender = json[7];
 
             // 服装タグの設定（JSONに登録済みならそのまま使用、なければURL解析および分散設定）
-            if (json[8]) {
+            if (json[8] !== undefined) {
                 photo.clothing = json[8];
             } else {
-                const urlLower = (photo.full + ' ' + photo.regular).toLowerCase();
-                if (['inner', 'tight', 'swimsuit', 'underwear', 'bare', 'shirtless', 'muscle', 'fit', 'abs', 'bodybuilder'].some(k => urlLower.includes(k))) {
-                    photo.clothing = PhotoClothing.INNER;
-                } else if (['suit', 'jacket', 'blazer', 'tuxedo'].some(k => urlLower.includes(k))) {
-                    photo.clothing = PhotoClothing.SUIT;
-                } else if (['shirt', 'blouse', 'collared'].some(k => urlLower.includes(k))) {
-                    photo.clothing = PhotoClothing.SHIRT;
-                } else if (['hoodie', 'sweatshirt', 'loose', 'oversized', 'coat', 'parka'].some(k => urlLower.includes(k))) {
-                    photo.clothing = PhotoClothing.LOOSE;
-                } else if (['kimono', 'yukata', 'traditional', 'haori', 'japanese'].some(k => urlLower.includes(k))) {
-                    photo.clothing = PhotoClothing.KIMONO;
-                } else {
-                    // キーワードがない既存画像データセットでもフィルター検索が機能するようにバランス分散
+                // URLからキーワード（タグ）を抽出して Photo.ts の判定関数に渡す
+                const urlKeywords = (photo.full + ' ' + photo.regular)
+                    .toLowerCase()
+                    .split(/[\/\?&\.=\-_]/);
+                
+                const detected = getPhotoClothingByTags(urlKeywords);
+                
+                // キーワードで判定できなかった場合はバランス分散
+                if (detected === PhotoClothing.ALL) {
                     photo.clothing = clothingList[i % clothingList.length];
+                } else {
+                    photo.clothing = detected;
                 }
             }
 
