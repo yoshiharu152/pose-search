@@ -16,6 +16,7 @@ import MatchCrotch from './impl/MatchCrotch';
 import MatchElbow from './impl/MatchElbow';
 import MatchElbowCameraUnrelated from './impl/MatchElbowCameraUnrelated';
 import MatchFace from './impl/MatchFace';
+import MatchFullBody from './impl/MatchFullBody';
 import MatchHip from './impl/MatchHip';
 import MatchHipCameraUnrelated from './impl/MatchHipCameraUnrelated';
 import MatchKnee from './impl/MatchKnee';
@@ -24,13 +25,12 @@ import MatchShoulder from './impl/MatchShoulder';
 import MatchShoulderCameraUnrelated from './impl/MatchShoulderCameraUnrelated';
 import {filterAndSort, PoseMatcher, SearchResult} from './impl/search';
 
-// 服装キーワードマッピング定義
 const clothingKeywords: Record<string, string[]> = {
-    suit: ['suit', 'jacket', 'blazer', 'formal'],
-    shirt: ['shirt', 'blouse', 'collared'],
-    loose: ['hoodie', 'sweatshirt', 'loose', 'oversized', 'coat'],
-    kimono: ['kimono', 'yukata', 'traditional', 'haori'],
-    inner: ['inner', 'tight', 'swimsuit', 'underwear', 'bare']
+    suit: ['suit', 'jacket', 'blazer', 'スーツ', 'ジャケット'],
+    shirt: ['shirt', 'blouse', 'ワイシャツ', 'シャツ'],
+    loose: ['hoodie', 'sweatshirt', 'loose', 'oversized', 'パーカー', 'ダボ'],
+    kimono: ['kimono', 'yukata', 'haori', '着物', '浴衣', '和服'],
+    inner: ['inner', 'tight', 'swimsuit', 'インナー', '素体']
 };
 
 const matchers: {
@@ -44,7 +44,7 @@ const matchers: {
         matcher: new MatchFace(),
         highlights: [BodyPart.head]
     },
-    'Chest / Spine': { // 腰・背骨の選択項目を追加
+    'Chest / Spine': {
         matcher: new MatchChest(),
         highlights: [BodyPart.trunk]
     },
@@ -68,7 +68,7 @@ const matchers: {
         cameraUnrelatedMatcher: new MatchElbowCameraUnrelated(false),
         highlights: [BodyPart.rightUpperArm, BodyPart.rightLowerArm]
     },
-    'Crotch / Waist': { // 股関節・腰まわり
+    'Crotch / Waist': {
         matcher: new MatchCrotch(),
         highlights: [BodyPart.trunk]
     },
@@ -92,9 +92,20 @@ const matchers: {
         cameraUnrelatedMatcher: new MatchKneeCameraUnrelated(false),
         highlights: [BodyPart.rightThigh, BodyPart.rightCalf]
     },
-    'Full Body': { // 全身検索オプションの追加
-        matcher: new MatchChest(),
-        highlights: [BodyPart.head, BodyPart.trunk, BodyPart.leftUpperArm, BodyPart.rightUpperArm, BodyPart.leftThigh, BodyPart.rightThigh]
+    'Full Body': {
+        matcher: new MatchFullBody(),
+        highlights: [
+            BodyPart.head,
+            BodyPart.trunk,
+            BodyPart.leftUpperArm,
+            BodyPart.leftLowerArm,
+            BodyPart.rightUpperArm,
+            BodyPart.rightLowerArm,
+            BodyPart.leftThigh,
+            BodyPart.leftCalf,
+            BodyPart.rightThigh,
+            BodyPart.rightCalf
+        ]
     }
 };
 
@@ -154,19 +165,20 @@ export default defineComponent({
                 const bodyPartMatchers = matchers[bodyPart.value!];
                 if (bodyPartMatchers) {
                     let list = dataset.data;
-                    
-                    // 性別フィルター
+
                     if (gender.value) {
                         list = list.filter(photo => photo.gender === gender.value);
                     }
 
-                    // 服装（Outfit）タグ・キーワードフィルター
                     if (clothingType.value && clothingType.value !== 'all') {
-                        const targets = clothingKeywords[clothingType.value] || [];
-                        list = list.filter(photo => {
-                            const raw = JSON.stringify(photo).toLowerCase();
-                            return targets.some(kw => raw.includes(kw));
+                        const keywords = clothingKeywords[clothingType.value] || [];
+                        const matchedList = list.filter(photo => {
+                            const str = JSON.stringify(photo).toLowerCase();
+                            return keywords.some(kw => str.includes(kw));
                         });
+                        if (matchedList.length > 0) {
+                            list = matchedList;
+                        }
                     }
 
                     const matcher = !cameraRelated.value && bodyPartMatchers.cameraUnrelatedMatcher ?
