@@ -175,7 +175,7 @@ export default defineComponent({
                             photo,
                             score: 0.8,
                             flip: false,
-                            center: [0, 0] as [number, number],
+                            center: [0, 0, 0] as [number, number, number],
                             related: {}
                         } as SearchResult));
                     }
