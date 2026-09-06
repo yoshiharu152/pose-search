@@ -11,7 +11,6 @@ import {isMouseSupported, isWebGL2Supported} from '../utils/browser-support';
 import DraggableCamera from '../utils/DraggableCamera';
 import Photo, { PhotoClothing, PhotoGender } from '../utils/Photo';
 import PhotoDataset from '../utils/PhotoDataset';
-import { searchPexelsPhotos } from '../utils/PexelsService';
 
 import MatchChest from './impl/MatchChest';
 import MatchCrotch from './impl/MatchCrotch';
@@ -27,13 +26,13 @@ import MatchShoulder from './impl/MatchShoulder';
 import MatchShoulderCameraUnrelated from './impl/MatchShoulderCameraUnrelated';
 import {filterAndSort, PoseMatcher, SearchResult} from './impl/search';
 
-// 服装カテゴリーとPexels検索キーワードの対応表（精度向上版）
-const CLOTHING_QUERY_MAP: Record<string, { query: string; tag: PhotoClothing }> = {
-    suit: { query: 'business suit full body', tag: PhotoClothing.SUIT },
-    shirt: { query: 'person wearing shirt full body', tag: PhotoClothing.SHIRT },
-    loose: { query: 'hoodie portrait full body', tag: PhotoClothing.LOOSE },
-    kimono: { query: 'kimono fashion full body', tag: PhotoClothing.KIMONO },
-    inner: { query: 'fitness wear swimwear', tag: PhotoClothing.INNER },
+// 服装カテゴリーとPhotoClothingタグの対応表
+const CLOTHING_TAG_MAP: Record<string, PhotoClothing> = {
+    suit: PhotoClothing.SUIT,
+    shirt: PhotoClothing.SHIRT,
+    loose: PhotoClothing.LOOSE,
+    kimono: PhotoClothing.KIMONO,
+    inner: PhotoClothing.INNER,
 };
 
 const matchers: {
@@ -164,39 +163,24 @@ export default defineComponent({
                 searchResult.value = [];
                 await nextTick();
 
-                let pexelsResults: SearchResult[] = [];
-
-                if (clothingType.value && clothingType.value !== 'all') {
-                    const config = CLOTHING_QUERY_MAP[clothingType.value];
-                    if (config) {
-                        const fetchedPhotos = await searchPexelsPhotos(config.query, config.tag, 15);
-                        
-                        pexelsResults = fetchedPhotos.map(photo => ({
-                            photo,
-                            score: 0.8,
-                            flip: false,
-                            center: [0, 0, 0] as [number, number, number],
-                            related: {}
-                        } as SearchResult));
-                    }
-                }
-
                 const bodyPartMatchers = matchers[bodyPart.value!];
                 if (bodyPartMatchers) {
                     let list = dataset.data;
 
+                    // 性別フィルター
                     if (gender.value) {
                         list = list.filter(photo => photo.gender === gender.value || photo.gender === PhotoGender.UNMARKED);
                     }
 
+                    // 服装フィルター（データセットに設定されている服装属性で絞り込み）
                     if (clothingType.value && clothingType.value !== 'all') {
-                        const types = ['suit', 'shirt', 'loose', 'kimono', 'inner'];
-                        const selectedIndex = types.indexOf(clothingType.value);
-                        if (selectedIndex >= 0) {
-                            list = list.filter((_, index) => (index % types.length) === selectedIndex);
+                        const targetTag = CLOTHING_TAG_MAP[clothingType.value];
+                        if (targetTag !== undefined) {
+                            list = list.filter(photo => photo.clothing === targetTag);
                         }
                     }
 
+                    // カメラ連動判定
                     const isCameraOn = Number(cameraRelated.value) !== 0;
                     const matcher = isCameraOn || !bodyPartMatchers.cameraUnrelatedMatcher ?
                         bodyPartMatchers.matcher : bodyPartMatchers.cameraUnrelatedMatcher;
@@ -208,7 +192,7 @@ export default defineComponent({
                         console.warn('Local pose matching skipped due to data format:', e);
                     }
 
-                    searchResult.value = [...pexelsResults, ...localResults].slice(0, MAX_NUM_OF_SEARCH_RESULTS);
+                    searchResult.value = localResults.slice(0, MAX_NUM_OF_SEARCH_RESULTS);
 
                     if (searchResultDom.value) {
                         searchResultDom.value.scrollTop = 0;
