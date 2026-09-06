@@ -1,7 +1,7 @@
 import Photo, { PhotoClothing, PhotoGender } from './Photo';
 
 // 取得したPexels APIキーをここに設定してください
-const PEXELS_API_KEY = 'ここに取得したAPIキーを入れる';
+const PEXELS_API_KEY = 'ZstaRWCgbf3EmLAH0SQ1nFRR8OmQZz6YgesXS0UGO97LPJd59HjRi6VY';
 
 /**
  * Pexels APIから服装キーワードで画像を検索してPhotoオブジェクト配列で返します
