@@ -27,13 +27,13 @@ import MatchShoulder from './impl/MatchShoulder';
 import MatchShoulderCameraUnrelated from './impl/MatchShoulderCameraUnrelated';
 import {filterAndSort, PoseMatcher, SearchResult} from './impl/search';
 
-// 服装カテゴリーとPexels検索キーワードの対応表
+// 服装カテゴリーとPexels検索キーワードの対応表（精度向上版）
 const CLOTHING_QUERY_MAP: Record<string, { query: string; tag: PhotoClothing }> = {
-    suit: { query: 'suit person full body', tag: PhotoClothing.SUIT },
-    shirt: { query: 'shirt person full body', tag: PhotoClothing.SHIRT },
-    loose: { query: 'hoodie casual person', tag: PhotoClothing.LOOSE },
-    kimono: { query: 'kimono full body', tag: PhotoClothing.KIMONO },
-    inner: { query: 'swimwear fitness person', tag: PhotoClothing.INNER },
+    suit: { query: 'business suit full body', tag: PhotoClothing.SUIT },
+    shirt: { query: 'person wearing shirt full body', tag: PhotoClothing.SHIRT },
+    loose: { query: 'hoodie portrait full body', tag: PhotoClothing.LOOSE },
+    kimono: { query: 'kimono fashion full body', tag: PhotoClothing.KIMONO },
+    inner: { query: 'fitness wear swimwear', tag: PhotoClothing.INNER },
 };
 
 const matchers: {
