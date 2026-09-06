@@ -9,8 +9,9 @@ import SkeletonModelCanvas from '../components/SkeletonModelCanvas/SkeletonModel
 import {MAX_NUM_OF_SEARCH_RESULTS} from '../config';
 import {isMouseSupported, isWebGL2Supported} from '../utils/browser-support';
 import DraggableCamera from '../utils/DraggableCamera';
-import Photo from '../utils/Photo';
+import Photo, { PhotoClothing } from '../utils/Photo';
 import PhotoDataset from '../utils/PhotoDataset';
+import { searchPexelsPhotos } from '../PexelsService';
 
 import MatchChest from './impl/MatchChest';
 import MatchCrotch from './impl/MatchCrotch';
@@ -25,6 +26,15 @@ import MatchKneeCameraUnrelated from './impl/MatchKneeCameraUnrelated';
 import MatchShoulder from './impl/MatchShoulder';
 import MatchShoulderCameraUnrelated from './impl/MatchShoulderCameraUnrelated';
 import {filterAndSort, PoseMatcher, SearchResult} from './impl/search';
+
+// 服装カテゴリーとPexels検索キーワードの対応表
+const CLOTHING_QUERY_MAP: Record<string, { query: string; tag: PhotoClothing }> = {
+    suit: { query: 'suit person full body', tag: PhotoClothing.SUIT },
+    shirt: { query: 'shirt person full body', tag: PhotoClothing.SHIRT },
+    loose: { query: 'hoodie casual person', tag: PhotoClothing.LOOSE },
+    kimono: { query: 'kimono full body', tag: PhotoClothing.KIMONO },
+    inner: { query: 'swimwear fitness person', tag: PhotoClothing.INNER },
+};
 
 const matchers: {
     [name: string]: {
@@ -153,13 +163,29 @@ export default defineComponent({
                 searching.value = true;
                 searchResult.value = [];
                 await nextTick();
+
+                // 1. Outfitが選択されている場合、Pexels APIから動的に画像を取得してローカルデータに注入
+                if (clothingType.value && clothingType.value !== 'all') {
+                    const config = CLOTHING_QUERY_MAP[clothingType.value];
+                    if (config) {
+                        const fetchedPhotos = await searchPexelsPhotos(config.query, config.tag, 15);
+                        
+                        // 重複追加を防ぎつつ既存のdataset.dataに追加
+                        fetchedPhotos.forEach(newPhoto => {
+                            if (!dataset.data.some(p => p.id === newPhoto.id)) {
+                                dataset.data.push(newPhoto);
+                            }
+                        });
+                    }
+                }
+
                 const bodyPartMatchers = matchers[bodyPart.value!];
                 if (bodyPartMatchers) {
                     let list = dataset.data;
                     
                     // 性別フィルター
                     if (gender.value) {
-                        list = list.filter(photo => photo.gender === gender.value);
+                        list = list.filter(photo => photo.gender === gender.value || photo.gender === PhotoGender.UNMARKED);
                     }
 
                     // 服装（Outfit）フィルター処理
@@ -169,12 +195,17 @@ export default defineComponent({
                         
                         if (selectedIndex >= 0) {
                             list = list.filter((photo, index) => {
+                                // Pexels経由の画像はIDで判別して直接マッチ
+                                if (photo.id.startsWith('pexels-')) {
+                                    return photo.clothing === CLOTHING_QUERY_MAP[clothingType.value]?.tag;
+                                }
+
                                 // 画像パスやURLにカテゴリ文字列が含まれているか判定
                                 const path = (photo as any).url || (photo as any).path || '';
                                 if (path.includes(clothingType.value)) {
                                     return true;
                                 }
-                                // タグが存在しない画像はインデックスで分散抽出して切り替えを可能にする
+                                // タグが存在しない既存画像はインデックスで分散抽出
                                 return (index % types.length) === selectedIndex;
                             });
                         }
