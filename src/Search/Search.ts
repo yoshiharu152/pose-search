@@ -9,9 +9,9 @@ import SkeletonModelCanvas from '../components/SkeletonModelCanvas/SkeletonModel
 import {MAX_NUM_OF_SEARCH_RESULTS} from '../config';
 import {isMouseSupported, isWebGL2Supported} from '../utils/browser-support';
 import DraggableCamera from '../utils/DraggableCamera';
-import Photo, { PhotoClothing } from '../utils/Photo';
+import Photo, { PhotoClothing, PhotoGender } from '../utils/Photo';
 import PhotoDataset from '../utils/PhotoDataset';
-import { searchPexelsPhotos } from '../PexelsService';
+import { searchPexelsPhotos } from '../utils/PexelsService';
 
 import MatchChest from './impl/MatchChest';
 import MatchCrotch from './impl/MatchCrotch';
@@ -164,14 +164,14 @@ export default defineComponent({
                 searchResult.value = [];
                 await nextTick();
 
-                // 1. Outfitが選択されている場合、Pexels APIから動的に画像を取得してローカルデータに注入
+                // Outfitが選択されている場合、Pexels APIから動的に画像を取得
                 if (clothingType.value && clothingType.value !== 'all') {
                     const config = CLOTHING_QUERY_MAP[clothingType.value];
                     if (config) {
                         const fetchedPhotos = await searchPexelsPhotos(config.query, config.tag, 15);
                         
                         // 重複追加を防ぎつつ既存のdataset.dataに追加
-                        fetchedPhotos.forEach(newPhoto => {
+                        fetchedPhotos.forEach((newPhoto: Photo) => {
                             if (!dataset.data.some(p => p.id === newPhoto.id)) {
                                 dataset.data.push(newPhoto);
                             }
