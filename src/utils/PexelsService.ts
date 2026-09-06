@@ -1,20 +1,17 @@
 import Photo, { PhotoClothing, PhotoGender } from './Photo';
 
-// 取得したPexels APIキーをここに設定してください
+// 取得したPexels APIキー
 const PEXELS_API_KEY = 'ZstaRWCgbf3EmLAH0SQ1nFRR8OmQZz6YgesXS0UGO97LPJd59HjRi6VY';
 
 /**
  * Pexels APIから服装キーワードで画像を検索してPhotoオブジェクト配列で返します
- * @param query 検索キーワード（例: "suit person", "kimono", "swimwear"）
- * @param clothingTag 割り当てる服装タグ
- * @param perPage 取得件数（デフォルト20件）
  */
 export async function searchPexelsPhotos(
     query: string, 
     clothingTag: PhotoClothing = PhotoClothing.ALL, 
     perPage: number = 20
 ): Promise<Photo[]> {
-    if (!PEXELS_API_KEY || PEXELS_API_KEY === 'ZstaRWCgbf3EmLAH0SQ1nFRR8OmQZz6YgesXS0UGO97LPJd59HjRi6VY') {
+    if (!PEXELS_API_KEY) {
         console.warn('Pexels APIキーが設定されていません。');
         return [];
     }
