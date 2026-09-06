@@ -164,50 +164,39 @@ export default defineComponent({
                 searchResult.value = [];
                 await nextTick();
 
-                // Outfitが選択されている場合、Pexels APIから動的に画像を取得
+                let pexelsResults: SearchResult[] = [];
+
+                // 1. Outfitが選択されている場合、Pexels APIから動的に取得
                 if (clothingType.value && clothingType.value !== 'all') {
                     const config = CLOTHING_QUERY_MAP[clothingType.value];
                     if (config) {
                         const fetchedPhotos = await searchPexelsPhotos(config.query, config.tag, 15);
                         
-                        // 重複追加を防ぎつつ既存のdataset.dataに追加
-                        fetchedPhotos.forEach((newPhoto: Photo) => {
-                            if (!dataset.data.some(p => p.id === newPhoto.id)) {
-                                dataset.data.push(newPhoto);
-                            }
-                        });
+                        // Pexels画像をSearchResult形式（ポーズマッチ評価を通過させない）に整形
+                        pexelsResults = fetchedPhotos.map(photo => ({
+                            photo,
+                            score: 0.8, // 固定スコア
+                            flip: false,
+                        }));
                     }
                 }
 
                 const bodyPartMatchers = matchers[bodyPart.value!];
                 if (bodyPartMatchers) {
-                    let list = dataset.data;
-                    
+                    // ポーズ推定データを持っている既存データのみ抽出（安全措置）
+                    let list = dataset.data.filter(photo => photo.annotations && photo.annotations.length > 0);
+
                     // 性別フィルター
                     if (gender.value) {
                         list = list.filter(photo => photo.gender === gender.value || photo.gender === PhotoGender.UNMARKED);
                     }
 
-                    // 服装（Outfit）フィルター処理
+                    // 服装フィルター（既存データからの分散抽出）
                     if (clothingType.value && clothingType.value !== 'all') {
                         const types = ['suit', 'shirt', 'loose', 'kimono', 'inner'];
                         const selectedIndex = types.indexOf(clothingType.value);
-                        
                         if (selectedIndex >= 0) {
-                            list = list.filter((photo, index) => {
-                                // Pexels経由の画像はIDで判別して直接マッチ
-                                if (photo.id.startsWith('pexels-')) {
-                                    return photo.clothing === CLOTHING_QUERY_MAP[clothingType.value]?.tag;
-                                }
-
-                                // 画像パスやURLにカテゴリ文字列が含まれているか判定
-                                const path = (photo as any).url || (photo as any).path || '';
-                                if (path.includes(clothingType.value)) {
-                                    return true;
-                                }
-                                // タグが存在しない既存画像はインデックスで分散抽出
-                                return (index % types.length) === selectedIndex;
-                            });
+                            list = list.filter((_, index) => (index % types.length) === selectedIndex);
                         }
                     }
 
@@ -215,11 +204,18 @@ export default defineComponent({
                     const matcher = isCameraOn || !bodyPartMatchers.cameraUnrelatedMatcher ?
                         bodyPartMatchers.matcher : bodyPartMatchers.cameraUnrelatedMatcher;
 
-                    searchResult.value = filterAndSort(list, model, matcher).slice(0, MAX_NUM_OF_SEARCH_RESULTS);
+                    // 既存ローカルデータのポーズ計算結果
+                    const localResults = filterAndSort(list, model, matcher);
+
+                    // Pexels画像と既存画像の検索結果を統合
+                    searchResult.value = [...pexelsResults, ...localResults].slice(0, MAX_NUM_OF_SEARCH_RESULTS);
+
                     if (searchResultDom.value) {
                         searchResultDom.value.scrollTop = 0;
                     }
                 }
+            } catch (err) {
+                console.error('Search Error:', err);
             } finally {
                 searching.value = false;
             }
@@ -239,7 +235,7 @@ export default defineComponent({
                 if (optionName === 'Full Body') continue;
                 const highlights = matcherData.highlights;
                 const index = highlights.indexOf(clickedBodyPart);
-                
+
                 if (index >= 0) {
                     const score = (highlights.length - index) * 100 - highlights.length;
                     if (score > bestScore) {
